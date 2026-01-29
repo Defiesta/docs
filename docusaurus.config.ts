@@ -122,7 +122,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Defiesta. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Defiesta.`,
     },
     prism: {
       theme: prismThemes.github,
