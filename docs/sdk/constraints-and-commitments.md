@@ -176,50 +176,60 @@ This ensures identical outputs regardless of action order.
 
 ## Supported Action Types
 
-| Code | Name | Payload Size |
-|------|------|--------------|
-| 0x00000001 | Echo | Variable |
-| 0x00000002 | OpenPosition | 45 bytes |
-| 0x00000003 | ClosePosition | 32 bytes |
-| 0x00000004 | AdjustPosition | 44 bytes |
-| 0x00000005 | Swap | 72 bytes |
+For protocol v1, only on-chain executable action types are supported:
+
+| Code | Name | Payload Size | Description |
+|------|------|--------------|-------------|
+| 0x00000002 | CALL | Variable (≥96 bytes) | Generic contract call |
+| 0x00000003 | TRANSFER_ERC20 | 96 bytes | ERC20 token transfer |
+| 0x00000004 | NO_OP | 0 bytes | No operation (skipped) |
+
+Testing-only (not executable on-chain):
+
+| Code | Name | Payload Size | Description |
+|------|------|--------------|-------------|
+| 0x00000001 | ECHO | Variable | Test/debug action |
+
+Higher-level strategy concepts (e.g., "open position", "swap") are agent abstractions that must be compiled down to `CALL` or `TRANSFER_ERC20` actions.
 
 ### Payload Schemas
 
-**OpenPosition (45 bytes)**:
+**CALL** (`ACTION_TYPE_CALL = 0x00000002`):
+
+Payload is ABI-encoded as `abi.encode(uint256 value, bytes callData)`:
+
 ```
-Offset │ Field         │ Type      │ Size
-───────┼───────────────┼───────────┼──────
-0      │ asset_id      │ [u8; 32]  │ 32
-32     │ notional      │ u64       │ 8
-40     │ leverage_bps  │ u32       │ 4
-44     │ direction     │ u8        │ 1
+Offset │ Field         │ Type          │ Size
+───────┼───────────────┼───────────────┼──────
+0      │ value         │ uint256       │ 32
+32     │ offset        │ uint256       │ 32 (always 64)
+64     │ calldata_len  │ uint256       │ 32
+96     │ calldata      │ bytes         │ variable (32-byte aligned)
 ```
 
-**ClosePosition (32 bytes)**:
+Target format: bytes32 with EVM address left-padded (upper 12 bytes = 0x00, lower 20 bytes = address).
+
+On-chain execution: `target.call{value: value}(callData)`
+
+**TRANSFER_ERC20** (`ACTION_TYPE_TRANSFER_ERC20 = 0x00000003`):
+
+Payload is ABI-encoded as `abi.encode(address token, address to, uint256 amount)`:
+
 ```
-Offset │ Field         │ Type      │ Size
-───────┼───────────────┼───────────┼──────
-0      │ position_id   │ [u8; 32]  │ 32
+Offset │ Field         │ Type          │ Size
+───────┼───────────────┼───────────────┼──────
+0      │ token         │ address       │ 32 (left-padded)
+32     │ to            │ address       │ 32 (left-padded)
+64     │ amount        │ uint256       │ 32
 ```
 
-**AdjustPosition (44 bytes)**:
-```
-Offset │ Field           │ Type      │ Size
-───────┼─────────────────┼───────────┼──────
-0      │ position_id     │ [u8; 32]  │ 32
-32     │ new_notional    │ u64       │ 8
-40     │ new_leverage_bps│ u32       │ 4
-```
+Target: unused (set to zero).
 
-**Swap (72 bytes)**:
-```
-Offset │ Field      │ Type      │ Size
-───────┼────────────┼───────────┼──────
-0      │ from_asset │ [u8; 32]  │ 32
-32     │ to_asset   │ [u8; 32]  │ 32
-64     │ amount     │ u64       │ 8
-```
+On-chain execution: `IERC20(token).transfer(to, amount)`
+
+**NO_OP** (`ACTION_TYPE_NO_OP = 0x00000004`):
+
+Payload must be empty (0 bytes). Skipped during on-chain execution.
 
 ## Integration with Agent Development
 

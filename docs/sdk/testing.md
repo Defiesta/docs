@@ -69,7 +69,7 @@ mod tests {
         let input = create_valid_input();
         let output = agent_main(&ctx, &input);
         assert_eq!(output.actions.len(), 1);
-        assert_eq!(output.actions[0].action_type, ACTION_TYPE_OPEN_POSITION);
+        assert_eq!(output.actions[0].action_type, ACTION_TYPE_CALL);
     }
 
     #[test]
@@ -280,24 +280,38 @@ fn test_input_parsing_edge_cases() {
 
 ```rust
 #[test]
-fn test_action_payload_encoding() {
-    let action = open_position_action(
-        [0x01; 32],  // target
-        [0x02; 32],  // asset_id
-        1_000_000,   // notional
-        20_000,      // leverage (2x)
-        0,           // direction (long)
-    );
+fn test_call_action_payload_encoding() {
+    let target = address_to_bytes32(&[0x01; 20]);
+    let value: u128 = 1_000_000;
+    let calldata = &[0xab, 0xcd, 0xef, 0x12];  // 4-byte selector
 
-    assert_eq!(action.action_type, ACTION_TYPE_OPEN_POSITION);
-    assert_eq!(action.payload.len(), 45);  // Exact size
+    let action = call_action(target, value, calldata);
 
-    // Verify payload can be decoded
-    let decoded = decode_open_position_payload(&action.payload).unwrap();
-    assert_eq!(decoded.asset_id, [0x02; 32]);
-    assert_eq!(decoded.notional, 1_000_000);
-    assert_eq!(decoded.leverage_bps, 20_000);
-    assert_eq!(decoded.direction, 0);
+    assert_eq!(action.action_type, ACTION_TYPE_CALL);
+    // Payload: 32 (value) + 32 (offset) + 32 (length) + 32 (padded calldata)
+    assert_eq!(action.payload.len(), 128);
+
+    // Verify ABI encoding structure
+    assert_eq!(action.payload[63], 64);  // Offset = 64
+    assert_eq!(action.payload[95], 4);   // Length = 4
+    assert_eq!(&action.payload[96..100], calldata);
+}
+
+#[test]
+fn test_transfer_erc20_action_encoding() {
+    let token = [0x11; 20];
+    let recipient = [0x22; 20];
+    let amount: u128 = 1_000_000;
+
+    let action = transfer_erc20_action(&token, &recipient, amount);
+
+    assert_eq!(action.action_type, ACTION_TYPE_TRANSFER_ERC20);
+    assert_eq!(action.payload.len(), 96);  // 3 × 32 bytes
+
+    // Verify token address (left-padded)
+    assert_eq!(&action.payload[12..32], &token);
+    // Verify recipient address (left-padded)
+    assert_eq!(&action.payload[44..64], &recipient);
 }
 ```
 
@@ -305,21 +319,41 @@ fn test_action_payload_encoding() {
 
 ```rust
 #[test]
-fn test_leverage_constraint() {
-    let constraints = ConstraintSetV1 {
-        version: 1,
-        max_leverage_bps: 50_000,  // 5x max
-        ..Default::default()
+fn test_action_type_constraint() {
+    let constraints = ConstraintSetV1::default();
+
+    // CALL action should pass with valid ABI payload
+    let target = address_to_bytes32(&[0x11; 20]);
+    let call = call_action(target, 0, &[0xab, 0xcd, 0xef, 0x12]);
+    assert!(check_constraints(&constraints, &[call]).is_ok());
+
+    // NO_OP should pass with empty payload
+    let noop = no_op_action();
+    assert!(check_constraints(&constraints, &[noop]).is_ok());
+
+    // Unknown action type should fail
+    let unknown = ActionV1 {
+        action_type: 0xFFFFFFFF,
+        target: [0; 32],
+        payload: vec![],
     };
+    let result = check_constraints(&constraints, &[unknown]);
+    assert_eq!(result, Err(ViolationReason::UnknownActionType));
+}
 
-    // 5x should pass
-    let action_5x = open_position_action(target, asset, 1000, 50_000, 0);
-    assert!(check_constraints(&constraints, &[action_5x]).is_ok());
+#[test]
+fn test_invalid_call_payload() {
+    let constraints = ConstraintSetV1::default();
+    let target = address_to_bytes32(&[0x11; 20]);
 
-    // 6x should fail
-    let action_6x = open_position_action(target, asset, 1000, 60_000, 0);
-    let result = check_constraints(&constraints, &[action_6x]);
-    assert_eq!(result, Err(ViolationReason::LeverageTooHigh));
+    // CALL with too-short payload should fail
+    let invalid = ActionV1 {
+        action_type: ACTION_TYPE_CALL,
+        target,
+        payload: vec![0u8; 64],  // Need at least 96 bytes
+    };
+    let result = check_constraints(&constraints, &[invalid]);
+    assert_eq!(result, Err(ViolationReason::InvalidActionPayload));
 }
 ```
 

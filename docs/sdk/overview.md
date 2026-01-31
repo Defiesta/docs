@@ -63,9 +63,8 @@ The prelude exports commonly used items:
 |----------|-------|
 | Context | `AgentContext` |
 | Types | `ActionV1`, `AgentOutput`, `MAX_ACTIONS_PER_OUTPUT`, `MAX_ACTION_PAYLOAD_BYTES` |
-| Action Constants | `ACTION_TYPE_ECHO`, `ACTION_TYPE_OPEN_POSITION`, `ACTION_TYPE_CLOSE_POSITION`, `ACTION_TYPE_ADJUST_POSITION`, `ACTION_TYPE_SWAP` |
-| Constructors | `echo_action`, `open_position_action`, `close_position_action`, `adjust_position_action`, `swap_action` |
-| Decode Helpers | `decode_*_payload`, `DecodedOpenPosition`, `DecodedAdjustPosition`, `DecodedSwap` |
+| Action Constants | `ACTION_TYPE_CALL`, `ACTION_TYPE_TRANSFER_ERC20`, `ACTION_TYPE_NO_OP` (production); `ACTION_TYPE_ECHO` (testing only) |
+| Constructors | `call_action`, `transfer_erc20_action`, `no_op_action`, `address_to_bytes32` (production); `echo_action` (testing only) |
 | Math | `checked_add_u64`, `checked_mul_div_u64`, `apply_bps`, `calculate_bps`, `BPS_DENOMINATOR` |
 | Bytes | `read_u32_le`, `read_u64_le`, `read_bytes32`, `read_u32_le_at`, etc. |
 | Alloc | `Vec` (NOT `vec![]` macro) |
@@ -113,44 +112,51 @@ pub struct ActionV1 {
 
 ## Action Types
 
+The following action types are supported for on-chain execution via KernelVault:
+
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `ACTION_TYPE_ECHO` | `0x00000001` | Test/echo action |
-| `ACTION_TYPE_OPEN_POSITION` | `0x00000002` | Open trading position |
-| `ACTION_TYPE_CLOSE_POSITION` | `0x00000003` | Close position |
-| `ACTION_TYPE_ADJUST_POSITION` | `0x00000004` | Modify position |
-| `ACTION_TYPE_SWAP` | `0x00000005` | Asset swap |
+| `ACTION_TYPE_CALL` | `0x00000002` | Generic contract call |
+| `ACTION_TYPE_TRANSFER_ERC20` | `0x00000003` | ERC20 token transfer |
+| `ACTION_TYPE_NO_OP` | `0x00000004` | No operation (skipped) |
+
+Testing-only action type (not executable on-chain):
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `ACTION_TYPE_ECHO` | `0x00000001` | Test/debug action (requires `testing` feature) |
+
+Higher-level strategy concepts (e.g., "open position", "swap") are agent abstractions that must be compiled down to `CALL` or `TRANSFER_ERC20` actions.
 
 ## Helper Functions
 
 ### Action Constructors
 
 ```rust
-// Create an echo action
+// Create a CALL action for generic contract calls
+let target = address_to_bytes32(&contract_address);  // [u8; 20] -> [u8; 32]
+let action = call_action(target, value, calldata);
+
+// Create a TRANSFER_ERC20 action
+let action = transfer_erc20_action(&token, &recipient, amount);
+
+// Create a NO_OP action (placeholder, skipped on-chain)
+let action = no_op_action();
+
+// Testing only: Create an ECHO action
+#[cfg(any(test, feature = "testing"))]
 let action = echo_action(target, payload);
+```
 
-// Create an open position action
-let action = open_position_action(
-    target,
-    asset_id,
-    notional,
-    leverage_bps,
-    direction,  // 0 = Long, 1 = Short
-);
+### Address Conversion
 
-// Create a close position action
-let action = close_position_action(target, position_id);
+EVM addresses (20 bytes) must be converted to bytes32 (32 bytes) with left-padding:
 
-// Create an adjust position action
-let action = adjust_position_action(
-    target,
-    position_id,
-    new_notional,
-    new_leverage_bps,
-);
-
-// Create a swap action
-let action = swap_action(target, from_asset, to_asset, amount);
+```rust
+let addr: [u8; 20] = [0x11; 20];
+let target = address_to_bytes32(&addr);
+// target[0..12] = [0; 12]  // zero padding
+// target[12..32] = addr    // original address
 ```
 
 ### Math Helpers

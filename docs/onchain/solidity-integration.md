@@ -138,8 +138,9 @@ library AgentOutputParser {
         bytes payload;
     }
 
-    uint32 constant ACTION_TYPE_CALL = 0x00000001;
-    uint32 constant ACTION_TYPE_TRANSFER_ERC20 = 0x00000002;
+    uint32 constant ACTION_TYPE_CALL = 0x00000002;
+    uint32 constant ACTION_TYPE_TRANSFER_ERC20 = 0x00000003;
+    uint32 constant ACTION_TYPE_NO_OP = 0x00000004;
 
     function parseActions(bytes calldata agentOutput)
         internal
