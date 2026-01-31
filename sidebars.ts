@@ -61,6 +61,7 @@ const sidebars: SidebarsConfig = {
       collapsed: true,
       items: [
         'agent-pack/format',
+        'agent-pack/publishing',
         'agent-pack/verification',
         'agent-pack/manifest-schema',
       ],

@@ -236,8 +236,49 @@ OPTIONS:
         --structure-only       Only verify manifest structure
 ```
 
+### `agent-pack pack`
+
+```
+USAGE:
+    agent-pack pack [OPTIONS] --manifest <PATH> --elf <PATH> --out <PATH>
+
+OPTIONS:
+    -m, --manifest <PATH>      Path to input manifest
+    -e, --elf <PATH>           Path to the built zkVM guest ELF binary
+    -o, --out <PATH>           Output directory for the bundle
+        --cargo-lock <PATH>    Path to Cargo.lock for hash computation
+        --copy-elf <BOOL>      Copy ELF into bundle artifacts folder [default: true]
+        --force                Overwrite existing files in output directory
+```
+
+Creates a self-contained bundle directory with the manifest and ELF binary. See [Publishing Bundles](/agent-pack/publishing) for the complete workflow.
+
+### `agent-pack verify-onchain`
+
+```
+USAGE:
+    agent-pack verify-onchain --manifest <PATH> --rpc <URL> --verifier <ADDRESS>
+
+OPTIONS:
+    -m, --manifest <PATH>      Path to manifest file
+        --rpc <URL>            RPC endpoint URL (e.g., https://sepolia.infura.io/v3/YOUR_KEY)
+        --verifier <ADDRESS>   KernelExecutionVerifier contract address
+        --timeout-ms <MS>      RPC timeout in milliseconds [default: 30000]
+```
+
+Verifies agent registration against the on-chain KernelExecutionVerifier contract. Requires building with `--features onchain`.
+
+**Exit Codes:**
+- `0`: Match (image_id matches on-chain)
+- `1`: Error (RPC failure, parse error, etc.)
+- `2`: Mismatch (image_id differs from on-chain)
+- `3`: Not registered (agent_id returns zero)
+
+See [Verification](/agent-pack/verification#on-chain-verification) for usage details.
+
 ## Related
 
+- [Publishing Bundles](/agent-pack/publishing) - Bundle workflow for distribution
 - [Verification](/agent-pack/verification) - Verifying Agent Packs
 - [Manifest Schema](/agent-pack/manifest-schema) - JSON schema reference
 - [RISC0 Build Pipeline](/guest-program/risc0-build-pipeline) - Building artifacts

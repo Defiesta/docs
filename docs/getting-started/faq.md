@@ -9,7 +9,7 @@ sidebar_position: 4
 
 ### What is the Execution Kernel?
 
-The Execution Kernel is a consensus-critical, deterministic agent execution framework for RISC Zero zkVM. It enables verifiable DeFi AI agents that make capital allocation decisions with cryptographic proof of correct execution.
+The Execution Kernel is a consensus-critical, deterministic agent execution framework for RISC Zero zkVM. It enables verifiable DeFi ML agents that make capital allocation decisions with cryptographic proof of correct execution.
 
 ### What makes an agent "verifiable"?
 

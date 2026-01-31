@@ -96,27 +96,56 @@ imageId verification requires building with `--features risc0` and having the RI
 
 ## On-Chain Verification
 
-After offline verification, check the on-chain registration:
+After offline verification, check the on-chain registration. The `verify-onchain` command provides a simple way to query the KernelExecutionVerifier contract and compare the registered imageId with your manifest.
 
-### Using Cast
+### Using verify-onchain Command
+
+```bash
+agent-pack verify-onchain \
+  --manifest agent-pack.json \
+  --rpc https://sepolia.infura.io/v3/YOUR_KEY \
+  --verifier 0x9Ef5bAB590AFdE8036D57b89ccD2947D4E3b1EFA
+```
+
+:::note
+The `verify-onchain` command requires building agent-pack with the `onchain` feature:
+```bash
+cargo build -p agent-pack --features onchain
+```
+:::
+
+### Exit Codes
+
+The command returns structured exit codes for CI integration:
+
+| Exit Code | Meaning |
+|-----------|---------|
+| 0 | Agent is registered and image_id matches |
+| 1 | Error (RPC failure, invalid manifest, etc.) |
+| 2 | Agent is registered but image_id differs |
+| 3 | Agent is not registered (agent_id returns zero) |
+
+### Using Cast (Alternative)
+
+You can also verify manually using `cast`:
 
 ```bash
 export VERIFIER_ADDRESS=0x9Ef5bAB590AFdE8036D57b89ccD2947D4E3b1EFA
 export AGENT_ID=0x0000000000000000000000000000000000000000000000000000000000000001
 
 # Query registered imageId
-cast call $VERIFIER_ADDRESS "registeredImageIds(bytes32)(bytes32)" \
+cast call $VERIFIER_ADDRESS "agentImageIds(bytes32)(bytes32)" \
     $AGENT_ID --rpc-url $RPC_URL
 ```
 
-### Comparison
+### Manual Comparison
 
 ```bash
 # From manifest
 MANIFEST_IMAGE_ID=$(jq -r '.image_id' agent-pack.json)
 
 # From chain
-CHAIN_IMAGE_ID=$(cast call $VERIFIER_ADDRESS "registeredImageIds(bytes32)(bytes32)" $AGENT_ID --rpc-url $RPC_URL)
+CHAIN_IMAGE_ID=$(cast call $VERIFIER_ADDRESS "agentImageIds(bytes32)(bytes32)" $AGENT_ID --rpc-url $RPC_URL)
 
 # Compare
 if [ "$MANIFEST_IMAGE_ID" == "$CHAIN_IMAGE_ID" ]; then
@@ -124,6 +153,26 @@ if [ "$MANIFEST_IMAGE_ID" == "$CHAIN_IMAGE_ID" ]; then
 else
     echo "WARNING: imageId mismatch!"
 fi
+```
+
+### Marketplace Verification Workflow
+
+A complete verification workflow for marketplaces accepting agent submissions:
+
+```bash
+#!/bin/bash
+set -e
+
+# Step 1: Offline verification - structure and file hashes
+agent-pack verify --manifest submission/agent-pack.json --base-dir submission
+
+# Step 2: On-chain verification - confirm registration
+agent-pack verify-onchain \
+  --manifest submission/agent-pack.json \
+  --rpc "$RPC_URL" \
+  --verifier 0x9Ef5bAB590AFdE8036D57b89ccD2947D4E3b1EFA
+
+echo "Agent verified successfully!"
 ```
 
 ## Reproducible Verification
