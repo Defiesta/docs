@@ -236,6 +236,63 @@ OPTIONS:
         --structure-only       Only verify manifest structure
 ```
 
+### `agent-pack scaffold`
+
+```
+USAGE:
+    agent-pack scaffold [OPTIONS] <NAME>
+
+ARGUMENTS:
+    <NAME>                     Agent project name (e.g., "my-yield-agent")
+
+OPTIONS:
+        --agent-id <AGENT_ID>  Pre-set agent ID (64-character hex with 0x prefix)
+                               [default: 0x00...00]
+    -o, --out <PATH>           Output directory [default: ./<name>]
+        --template <TYPE>      Template type: minimal | yield [default: minimal]
+        --no-git               Skip git init
+```
+
+Generates a complete, ready-to-build agent project structure. This is the fastest way to create a new agent:
+
+```bash
+# Create a minimal agent project
+agent-pack scaffold my-agent
+
+# Create a yield farming agent with custom ID
+agent-pack scaffold my-yield-agent --template yield \
+  --agent-id 0x0000000000000000000000000000000000000000000000000000000000000042
+```
+
+**Generated Structure:**
+
+```
+my-agent/
+├── Cargo.toml           # Workspace manifest
+├── README.md            # Quick start guide
+├── .gitignore
+├── agent/               # Core agent logic
+│   ├── Cargo.toml
+│   ├── build.rs         # AGENT_CODE_HASH computation
+│   └── src/lib.rs       # agent_main() template
+├── wrapper/             # AgentEntrypoint binding
+│   ├── Cargo.toml
+│   └── src/lib.rs
+├── tests/               # Test harness
+│   ├── Cargo.toml
+│   └── src/lib.rs
+└── dist/
+    └── agent-pack.json  # Pre-populated manifest
+```
+
+After scaffolding:
+
+```bash
+cd my-agent
+cargo build       # Build and compute AGENT_CODE_HASH
+cargo test        # Run unit tests
+```
+
 ### `agent-pack pack`
 
 ```

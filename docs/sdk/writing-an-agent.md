@@ -7,6 +7,42 @@ sidebar_position: 2
 
 This guide walks through the process of creating an agent from scratch, covering the agent logic, build infrastructure, wrapper crate, and zkVM guest.
 
+## Quick Start with Scaffold
+
+The fastest way to create a new agent is using the `agent-pack scaffold` command:
+
+```bash
+# Install agent-pack (if not already installed)
+cargo install --git https://github.com/Defiesta/execution-kernel agent-pack
+
+# Create a new agent project
+agent-pack scaffold my-agent
+
+# Or use the yield template for a more complete example
+agent-pack scaffold my-yield-agent --template yield
+```
+
+This generates a complete project structure with:
+- Agent crate with `agent_main()` template
+- Wrapper crate implementing `AgentEntrypoint`
+- Test harness with unit tests
+- Pre-populated `agent-pack.json` manifest
+- Build script for `AGENT_CODE_HASH` computation
+
+After scaffolding:
+
+```bash
+cd my-agent
+cargo build    # Build and compute AGENT_CODE_HASH
+cargo test     # Run unit tests
+```
+
+See [Agent Pack Format](/agent-pack/format#agent-pack-scaffold) for full scaffold options.
+
+---
+
+The rest of this guide explains what the scaffold creates and how to customize it.
+
 ## Setting Up Your Agent Crate
 
 Create a new Rust library crate:
